@@ -18,4 +18,6 @@
 		</div>
 	</div>
 </div>
-<?php echo $dispatcher_form; // WPCS: XSS OK ?>
+<?php
+ 
+echo $dispatcher_form; // WPCS: XSS OK ?>

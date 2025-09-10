@@ -1,14 +1,14 @@
 <?php
 /*
-Plugin Name: Payment gateway for WooCommerce - Woo Alipay
-Plugin URI: https://github.com/froger-me/woo-alipay
+Plugin Name: Woo Alipay
+Plugin URI: https://wenpai.org/plugins/woo-alipay
 Description: Integrate Woocommerce with Alipay (Mainland China).
-Version: 1.1.3
-Author: Alexandre Froger
-Author URI: https://froger.me
+Version: 3.0
+Author: WooCN.com
+Author URI: https://woocn.com/
 Text Domain: woo-alipay
 Domain Path: /languages
-WC tested up to: 4.0.1
+WC tested up to: 10.0.1
 */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -66,4 +66,4 @@ function woo_alipay_run() {
 	$wc_alipay = new WC_Alipay( true );
 	$wooalipay = new Woo_Alipay( $alipay_lib_paths, true );
 }
-add_action( 'plugins_loaded', 'woo_alipay_run', 0, 0 );
+add_action( 'init', 'woo_alipay_run', 0, 0 );
