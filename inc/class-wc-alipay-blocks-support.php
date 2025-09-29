@@ -58,7 +58,7 @@ final class WC_Alipay_Blocks_Support extends AbstractPaymentMethodType {
             'title'       => $this->get_setting( 'title', '支付宝' ),
             'description' => $this->get_setting( 'description', '通过支付宝付款（中国大陆，包括香港和澳门）。' ),
             'supports'    => $this->get_supported_features(),
-            'icon'        => '',
+            'icon'        => WOO_ALIPAY_PLUGIN_URL . 'assets/images/alipay-icon.svg',
         ];
     }
 

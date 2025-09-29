@@ -40,6 +40,7 @@ class WC_Alipay extends WC_Payment_Gateway
         $this->method_title = __('Alipay by Woo Alipay', 'woo-alipay');
         $this->charset = strtolower(get_bloginfo('charset'));
         $this->id = self::GATEWAY_ID;
+        $this->icon = WOO_ALIPAY_PLUGIN_URL . 'assets/images/alipay-icon.svg';
         $this->description = $this->get_option('description');
         $this->method_description = __('Alipay is a simple, secure and fast online payment method.', 'woo-alipay');
         $this->exchange_rate = $this->get_option('exchange_rate');
@@ -55,6 +56,13 @@ class WC_Alipay extends WC_Payment_Gateway
         $this->supports = array(
             'products',
             'refunds',
+            'subscriptions',
+            'subscription_cancellation',
+            'subscription_suspension',
+            'subscription_reactivation',
+            'subscription_amount_changes',
+            'subscription_date_changes',
+            'multiple_subscriptions',
         );
 
         self::$log_enabled = ('yes' === $this->get_option('debug', 'no'));
@@ -115,18 +123,26 @@ class WC_Alipay extends WC_Payment_Gateway
             'appid' => array(
                 'title' => __('Alipay App ID', 'woo-alipay'),
                 'type' => 'text',
-                'description' => __('The App ID found in Alipay Open Platform', 'woo-alipay'),
+                'description' => sprintf(
+                    __('在支付宝开放平台获取的应用ID。%s', 'woo-alipay'),
+                    '<a href="https://openhome.alipay.com/platform/developerIndex.htm" target="_blank">' . __('前往支付宝开放平台', 'woo-alipay') . '</a>'
+                ),
             ),
             'public_key' => array(
                 'title' => __('Alipay public key', 'woo-alipay'),
                 'type' => 'textarea',
-                'description' => __('The Alipay public key generated in the Alipay Open Platform ("支付宝公钥").', 'woo-alipay'),
+                'description' => sprintf(
+                    __('支付宝公钥，在支付宝开放平台应用详情页面获取。%s', 'woo-alipay'),
+                    '<a href="https://woocn.com/product/woo-alipay.html" target="_blank">' . __('查看配置教程', 'woo-alipay') . '</a>'
+                ),
             ),
             'private_key' => array(
                 'title' => __('Alipay Merchant application private key', 'woo-alipay'),
                 'type' => 'textarea',
-                'description' => __('The private key generated with the provided Alipay tool application or the <code>openssl</code> command line.<br/>
-This key is secret and is not recorded in Alipay Open Platform - <strong>DO NOT SHARE THIS VALUE WITH ANYONE</strong>.', 'woo-alipay'),
+                'description' => sprintf(
+                    __('应用私钥，使用支付宝密钥生成工具或openssl命令生成。<br/><strong>此密钥为机密信息，请勿泄露给任何人</strong>。%s', 'woo-alipay'),
+                    '<a href="https://woocn.com/product/woo-alipay.html" target="_blank">' . __('查看密钥生成教程', 'woo-alipay') . '</a>'
+                ),
             ),
             'sandbox' => array(
                 'title' => __('Sandbox', 'woo-alipay'),
@@ -388,16 +404,27 @@ This key is secret and is not recorded in Alipay Open Platform - <strong>DO NOT 
         return $config;
     }
 
-    protected static function log($message, $level = 'info', $force = false)
+    protected static function log($message, $level = 'info', $force = false, $context = array())
     {
-
         if (self::$log_enabled || $force) {
-
             if (empty(self::$log)) {
                 self::$log = wc_get_logger();
             }
 
-            self::$log->log($level, $message, array('source' => self::GATEWAY_ID));
+            $default_context = array(
+                'source' => self::GATEWAY_ID,
+                'timestamp' => current_time('mysql'),
+                'user_id' => get_current_user_id(),
+                'ip_address' => WC_Geolocation::get_ip_address(),
+            );
+
+            $context = array_merge($default_context, $context);
+            
+            if (is_array($message) || is_object($message)) {
+                $message = wc_print_r($message, true);
+            }
+
+            self::$log->log($level, $message, $context);
         }
     }
 
@@ -539,19 +566,16 @@ This key is secret and is not recorded in Alipay Open Platform - <strong>DO NOT 
     {
         echo '<h3>' . esc_html(__('Alipay payment gateway by Woo Alipay', 'woo-alipay')) . '</h3>';
         echo '<p>' . esc_html(__('Alipay is a simple, secure and fast online payment method.', 'woo-alipay')) . '</p>';
+        
+        echo '<div class="notice notice-info inline">';
+        echo '<p>';
+        printf(
+            __('需要配置帮助？请查看 %1$s 获取详细的配置指南和文档。', 'woo-alipay'),
+            '<a href="https://woocn.com/document/woo-alipay" target="_blank">' . __('官方文档', 'woo-alipay') . '</a>'
+        );
+        echo '</p>';
+        echo '</div>';
 
-        $url_data = wp_parse_url(get_home_url());
-        $scheme = $url_data['scheme'];
-        $url_root = $scheme . '://' . $url_data['host'];
-        $wc_callback = $this->notify_url;
-
-        ob_start();
-
-        require_once WOO_ALIPAY_PLUGIN_PATH . 'inc/templates/admin/config-help.php';
-
-        $html = ob_get_clean();
-
-        echo $html; // WPCS: XSS OK
         echo '<table class="form-table woo-alipay-settings">';
 
         $this->generate_settings_html();
@@ -753,13 +777,50 @@ This key is secret and is not recorded in Alipay Open Platform - <strong>DO NOT 
 
     public function process_payment($order_id)
     {
-        $order = new WC_Order($order_id);
+        try {
+            $order = wc_get_order($order_id);
+            
+            if (!$order) {
+                throw new Exception(__('订单不存在', 'woo-alipay'));
+            }
 
-        $redirect = $order->get_checkout_payment_url(true);
-        return array(
-            'result' => 'success',
-            'redirect' => $redirect,
-        );
+            if (!$this->validate_currency($order)) {
+                throw new Exception(__('不支持的货币类型', 'woo-alipay'));
+            }
+
+            $order->update_status('pending', __('等待支付宝支付', 'woo-alipay'));
+
+            $redirect = $order->get_checkout_payment_url(true);
+            
+            return array(
+                'result' => 'success',
+                'redirect' => $redirect,
+            );
+            
+        } catch (Exception $e) {
+            wc_add_notice($e->getMessage(), 'error');
+            $this->log('Payment processing error: ' . $e->getMessage());
+            
+            return array(
+                'result' => 'failure',
+                'messages' => $e->getMessage(),
+            );
+        }
+    }
+
+    private function validate_currency($order)
+    {
+        $currency = $order->get_currency();
+        
+        if (in_array($currency, $this->supported_currencies, true)) {
+            return true;
+        }
+        
+        if ($this->requires_exchange_rate() && $this->exchange_rate > 0) {
+            return true;
+        }
+        
+        return false;
     }
 
     public function test_connection()

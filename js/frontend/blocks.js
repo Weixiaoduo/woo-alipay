@@ -9,9 +9,26 @@ const defaultDescription = __( '通过支付宝付款（中国大陆，包括香
 
 const Label = ( props ) => {
     const { PaymentMethodLabel } = props.components;
-    return createElement( PaymentMethodLabel, { 
-        text: decodeEntities( settings.title || defaultLabel ) 
-    } );
+    const iconElement = settings.icon ? createElement( 'img', {
+        src: settings.icon,
+        alt: decodeEntities( settings.title || defaultLabel ),
+        style: { 
+            width: '24px', 
+            height: '24px', 
+            marginRight: '8px',
+            verticalAlign: 'middle'
+        }
+    } ) : null;
+    
+    return createElement( 'div', {
+        style: { display: 'flex', alignItems: 'center' }
+    }, [
+        iconElement,
+        createElement( PaymentMethodLabel, { 
+            text: decodeEntities( settings.title || defaultLabel ),
+            key: 'label'
+        } )
+    ] );
 };
 
 const Content = () => {

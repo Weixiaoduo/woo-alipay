@@ -49,10 +49,6 @@ jQuery( document ).ready( function( $ ) {
 		} );
 	} );
 
-	$('.woo-alipay-config-help .handlediv, .woo-alipay-config-help .handle').on('click', function(e){
-		e.preventDefault();
 
-		$('.woo-alipay-config-help').toggleClass('closed');
-	});
 
 } );
