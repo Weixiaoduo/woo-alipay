@@ -259,11 +259,8 @@ This key is secret and is not recorded in Alipay Open Platform - <strong>DO NOT 
         $order = new WC_Order($order_id);
 
         if (!$this->can_refund_order($order)) {
-
-            return new WP_Error('error', __('Refund failed', 'woocommerce') . ' - ' . $this->refund_status['reason']);
+            return new WP_Error('error', __('Refund failed', 'woocommerce') . ' - ' . $this->refundable_status['reason']);
         }
-
-        Woo_Alipay::require_lib('refund');
 
         $trade_no = $order->get_transaction_id();
         $total = $this->maybe_convert_amount($order->get_total());
@@ -341,29 +338,23 @@ This key is secret and is not recorded in Alipay Open Platform - <strong>DO NOT 
 
     protected function do_refund($out_trade_no, $trade_no, $amount, $refund_id, $reason, $order_id = 0)
     {
-        $refund_request_builder = new AlipayTradeRefundContentBuilder();
+        \Alipay\EasySDK\Kernel\Factory::setOptions($this->get_easy_sdk_config());
 
-        $refund_request_builder->setOutTradeNo($out_trade_no);
-        $refund_request_builder->setTradeNo($trade_no);
-        $refund_request_builder->setRefundAmount($amount);
-        $refund_request_builder->setOutRequestNo($refund_id);
-        $refund_request_builder->setRefundReason(esc_html($reason));
-
-        $config = $this->get_config($order_id);
-        $aop = new AlipayTradeService($config);
-        $response = $aop->Refund($refund_request_builder);
-
-        if (10000 !== absint($response->code)) {
-            self::log(__METHOD__ . ' Refund Error: ' . wc_print_r($response, true));
-
-            $result = new WP_Error('error', $response->msg . '; ' . $response->sub_msg);
-        } else {
-            self::log(__METHOD__ . ' Refund Result: ' . wc_print_r($response, true));
-
-            $result = $response;
+        try {
+            $response = \Alipay\EasySDK\Kernel\Factory::payment()->common()->refund($out_trade_no, $amount, $reason, $refund_id);
+            
+            $responseChecker = new \Alipay\EasySDK\Kernel\Util\ResponseChecker();
+            if ($responseChecker->success($response)) {
+                self::log(__METHOD__ . ' Refund Result: ' . wc_print_r($response, true));
+                return $response;
+            } else {
+                self::log(__METHOD__ . ' Refund Error: ' . wc_print_r($response, true));
+                return new WP_Error('error', $response->msg . '; ' . $response->subMsg);
+            }
+        } catch (Exception $e) {
+            self::log(__METHOD__ . ' Refund Exception: ' . $e->getMessage(), 'error');
+            return new WP_Error('error', $e->getMessage());
         }
-
-        return $result;
     }
 
     protected function get_config($order_id = 0)
@@ -380,6 +371,20 @@ This key is secret and is not recorded in Alipay Open Platform - <strong>DO NOT 
             'alipay_public_key' => $this->get_option('public_key'),
         );
 
+        return $config;
+    }
+
+    protected function get_easy_sdk_config()
+    {
+        $config = new \Alipay\EasySDK\Kernel\Config();
+        $config->protocol = 'https';
+        $config->gatewayHost = ('yes' === $this->get_option('sandbox')) ? 'openapi.alipaydev.com' : 'openapi.alipay.com';
+        $config->signType = 'RSA2';
+        $config->appId = $this->get_option('appid');
+        $config->merchantPrivateKey = $this->get_option('private_key');
+        $config->alipayPublicKey = $this->get_option('public_key');
+        $config->notifyUrl = $this->notify_url;
+        
         return $config;
     }
 
@@ -430,74 +435,42 @@ This key is secret and is not recorded in Alipay Open Platform - <strong>DO NOT 
         $order = new WC_Order($order_id);
 
         if (!$order || $order->is_paid()) {
-
             return;
         }
 
-        Woo_Alipay::require_lib($this->is_mobile() ? 'payment_mobile' : 'payment_computer');
-
         $total = $this->maybe_convert_amount($order->get_total());
+        $out_trade_no = 'WooA' . $order_id . '-' . current_time('timestamp');
+        $subject = $this->get_order_title($order);
+        $return_url = $this->get_return_url($order);
 
-        if ($this->is_mobile()) {
-            $pay_request_builder = new AlipayTradeWapPayContentBuilder();
-        } else {
-            $pay_request_builder = new AlipayTradePagePayContentBuilder();
+        \Alipay\EasySDK\Kernel\Factory::setOptions($this->get_easy_sdk_config());
+
+        try {
+            if ($this->is_mobile()) {
+                $result = \Alipay\EasySDK\Kernel\Factory::payment()->wap()->pay($subject, $out_trade_no, $total, '', $return_url);
+            } else {
+                $result = \Alipay\EasySDK\Kernel\Factory::payment()->page()->pay($subject, $out_trade_no, $total, $return_url);
+            }
+
+            if (isset($result->body)) {
+                echo $result->body;
+                return;
+            }
+        } catch (Exception $e) {
+            self::log('Easy SDK Payment Error: ' . $e->getMessage(), 'error', true);
         }
 
-        $pay_request_builder->setBody($this->get_order_title($order, true));
-        $pay_request_builder->setSubject($this->get_order_title($order));
-        $pay_request_builder->setTotalAmount($total);
-        $pay_request_builder->setOutTradeNo('WooA' . $order_id . '-' . current_time('timestamp'));
-
-        if ($this->is_mobile()) {
-            $pay_request_builder->setTimeExpress('15m');
-        }
-
-        $config = $this->get_config($order_id);
-        $aop = new AlipayTradeService($config);
         $dispatcher_form = false;
         global $wpdb;
 
         try {
-            ob_start();
-
-            if ($this->is_mobile()) {
-                $html = $aop->wapPay($pay_request_builder, $config['return_url'], $config['notify_url']);
-            } else {
-                $html = $aop->pagePay($pay_request_builder, $config['return_url'], $config['notify_url']);
-            }
-
-            $dom = new DOMDocument();
-            $dom->loadHTML($html);
-            $forms = $dom->getElementsByTagName('form');
-            $payUrl = '';
-            foreach ($forms as $form) {
-                $action = $form->getAttribute('action');
-                if (strpos($action, 'https://openapi.alipay.com/gateway.do') !== false) {
-                    $payUrl = $action;
-                    $inputs = $form->getElementsByTagName('input');
-                    foreach ($inputs as $input) {
-                        $name = $input->getAttribute('name');
-                        $value = urlencode($input->getAttribute('value'));
-                        $params[$name] = $value;
-                        if (!empty($name)) {
-                            $payUrl .= "&$name=$value";
-                        }
-                    }
-                    break;
-                }
-            }
-            $order->add_meta_data('alipay_initalRequest', $payUrl, true);
+            $order->add_meta_data('alipay_initalRequest', $out_trade_no, true);
             $order->save();
-            //$order->add_meta_data('alipay_initalRequest', $r['alipay_trade_page_pay_response']['pay_url'], true);
 
-            set_query_var('dispatcher_form', ob_get_clean());
+            set_query_var('dispatcher_form', $result->body);
 
         } catch (Exception $e) {
-            ob_end_clean();
-
             $message = ' Caught an exception when trying to generate the Alipay redirection form: ';
-
             self::log(__METHOD__ . $message . wc_print_r($e, true), 'error');
             $order->update_status('failed', $e->getMessage());
             WC()->cart->empty_cart();
@@ -623,10 +596,8 @@ This key is secret and is not recorded in Alipay Open Platform - <strong>DO NOT 
 
         $order->add_meta_data('alipay_initalResponse', json_encode($_POST), true);
 
-        Woo_Alipay::require_lib('check_notification');
-
-        $aop = new AlipayTradeService($config);
-        $result_check_signature = $aop->check($response_data);
+        \Alipay\EasySDK\Kernel\Factory::setOptions($this->get_easy_sdk_config());
+        $result_check_signature = \Alipay\EasySDK\Kernel\Factory::payment()->common()->verifyNotify($_POST);
 
         self::log(__METHOD__ . ' Alipay response raw data: ' . wc_print_r($response_data, true));
 
@@ -816,30 +787,21 @@ This key is secret and is not recorded in Alipay Open Platform - <strong>DO NOT 
 
     protected function execute_dummy_query()
     {
-        Woo_Alipay::require_lib('dummy_query');
+        \Alipay\EasySDK\Kernel\Factory::setOptions($this->get_easy_sdk_config());
 
-        $config = $this->get_config();
-        $aop = new AlipayTradeService($config);
-        $biz_content = '{"out_trade_no":"00000000000000000"}';
-        $request = new AlipayTradeQueryRequest();
-
-        $request->setBizContent($biz_content);
-
-        $response = $aop->aopclientRequestExecute($request);
-        $response = $response->alipay_trade_query_response;
-
-        if (
-            is_object($response) &&
-            isset($response->code, $response->sub_code) &&
-            '40004' === $response->code &&
-            'ACQ.TRADE_NOT_EXIST' === $response->sub_code
-        ) {
-            self::log(__METHOD__ . ': ' . 'Dummy query to Alipay successful');
-
-            return true;
-        } else {
-            self::log(__METHOD__ . ': ' . wc_print_r($response, true));
-
+        try {
+            $response = \Alipay\EasySDK\Kernel\Factory::payment()->common()->query('00000000000000000');
+            
+            if (isset($response->code) && '40004' === $response->code && 
+                isset($response->subCode) && 'ACQ.TRADE_NOT_EXIST' === $response->subCode) {
+                self::log(__METHOD__ . ': ' . 'Dummy query to Alipay successful');
+                return true;
+            } else {
+                self::log(__METHOD__ . ': ' . wc_print_r($response, true));
+                return false;
+            }
+        } catch (Exception $e) {
+            self::log(__METHOD__ . ': Exception - ' . $e->getMessage(), 'error');
             return false;
         }
     }

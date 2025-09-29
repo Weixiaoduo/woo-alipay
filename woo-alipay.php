@@ -1,15 +1,15 @@
 <?php
 /*
-Plugin Name: Woo Alipay
-Plugin URI: https://wenpai.org/plugins/woo-alipay
-Description: Integrate Woocommerce with Alipay (Mainland China). Supports WooCommerce Blocks and HPOS.
-Version: 3.1.0
-Author: WooCN.com
-Author URI: https://woocn.com/
-Text Domain: woo-alipay
-Domain Path: /languages
-WC tested up to: 10.0.1
-Requires Plugins: woocommerce
+* Plugin Name: Woo Alipay
+* Plugin URI: https://wenpai.org/plugins/woo-alipay
+* Description: Integrate Woocommerce with Alipay (Mainland China). Supports WooCommerce Blocks and HPOS.
+* Version: 3.2.0
+* Author: WooCN.com
+* Author URI: https://woocn.com/
+* Text Domain: woo-alipay
+* Domain Path: /languages
+* WC tested up to: 10.2.2
+* Requires Plugins: woocommerce
 */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -42,34 +42,16 @@ register_uninstall_hook( WOO_ALIPAY_PLUGIN_FILE, array( 'Woo_Alipay', 'uninstall
 
 function woo_alipay_run() {
 	if ( ! class_exists( 'WC_Payment_Gateway' ) ) {
-
 		return;
+	}
+
+	if ( file_exists( WOO_ALIPAY_PLUGIN_PATH . 'vendor/autoload.php' ) ) {
+		require_once WOO_ALIPAY_PLUGIN_PATH . 'vendor/autoload.php';
 	}
 
 	require_once WOO_ALIPAY_PLUGIN_PATH . 'inc/class-wc-alipay.php';
 
-	$alipay_lib_paths = array(
-		'payment_mobile'     => array(
-			'AlipayTradeService'              => WOO_ALIPAY_PLUGIN_PATH . 'lib/alipay/wappay/service/AlipayTradeService.php',
-			'AlipayTradeWapPayContentBuilder' => WOO_ALIPAY_PLUGIN_PATH . 'lib/alipay/wappay/buildermodel/AlipayTradeWapPayContentBuilder.php',
-		),
-		'payment_computer'   => array(
-			'AlipayTradeService'               => WOO_ALIPAY_PLUGIN_PATH . 'lib/alipay/pagepay/service/AlipayTradeService.php',
-			'AlipayTradePagePayContentBuilder' => WOO_ALIPAY_PLUGIN_PATH . 'lib/alipay/pagepay/buildermodel/AlipayTradePagePayContentBuilder.php',
-		),
-		'check_notification' => array(
-			'AlipayTradeService' => WOO_ALIPAY_PLUGIN_PATH . 'lib/alipay/pagepay/service/AlipayTradeService.php',
-		),
-		'refund'             => array(
-			'AlipayTradeService'              => WOO_ALIPAY_PLUGIN_PATH . 'lib/alipay/pagepay/service/AlipayTradeService.php',
-			'AlipayTradeRefundContentBuilder' => WOO_ALIPAY_PLUGIN_PATH . 'lib/alipay/pagepay/buildermodel/AlipayTradeRefundContentBuilder.php',
-		),
-		'dummy_query'        => array(
-			'AlipayTradeService' => WOO_ALIPAY_PLUGIN_PATH . 'lib/alipay/pagepay/service/AlipayTradeService.php',
-		),
-	);
-
 	$wc_alipay = new WC_Alipay( true );
-	$wooalipay = new Woo_Alipay( $alipay_lib_paths, true );
+	$wooalipay = new Woo_Alipay( array(), true );
 }
 add_action( 'init', 'woo_alipay_run', 0, 0 );

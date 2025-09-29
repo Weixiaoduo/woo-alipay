@@ -1,0 +1,5 @@
+{
+    "require": {
+        "alipaysdk/easysdk": "^2.0"
+    }
+}
