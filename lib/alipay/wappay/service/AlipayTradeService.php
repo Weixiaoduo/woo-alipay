@@ -8,6 +8,7 @@
  */
 
 require_once dirname ( __FILE__ ).DIRECTORY_SEPARATOR.'./../../AopSdk.php';
+require_once dirname ( __FILE__ ).DIRECTORY_SEPARATOR.'./../../aop/request/AlipayTradeWapPayRequest.php';
 
 class AlipayTradeService {
 

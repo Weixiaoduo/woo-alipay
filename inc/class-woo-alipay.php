@@ -28,6 +28,9 @@ class Woo_Alipay {
 			add_filter( 'woocommerce_get_order_item_totals', array( $this, 'display_order_meta_for_customer' ), 10, 2 );
 			// Add Alipay orphan transactions email notification
 			add_filter( 'woocommerce_email_classes', array( $this, 'add_orphan_transaction_woocommerce_email' ), 10, 1 );
+			
+			// Add WooCommerce Blocks support
+			add_action( 'init', array( $this, 'woocommerce_gateway_alipay_woocommerce_block_support' ), 1 );
 		}
 	}
 
@@ -179,4 +182,19 @@ class Woo_Alipay {
 		return $email_classes;
 	}
 
+	public function woocommerce_gateway_alipay_woocommerce_block_support() {
+		if ( ! class_exists( 'Automattic\WooCommerce\Blocks\Payments\Integrations\AbstractPaymentMethodType' ) ) {
+			return;
+		}
+
+		require_once WOO_ALIPAY_PLUGIN_PATH . 'inc/class-wc-alipay-blocks-support.php';
+		
+		add_action(
+			'woocommerce_blocks_payment_method_type_registration',
+			function( Automattic\WooCommerce\Blocks\Payments\PaymentMethodRegistry $payment_method_registry ) {
+				$payment_method_registry->register( new WC_Alipay_Blocks_Support() );
+			},
+			5
+		);
+	}
 }

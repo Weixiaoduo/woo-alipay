@@ -8,6 +8,7 @@
  */
 
 require_once dirname(dirname(dirname ( __FILE__ ))).'/AopSdk.php';
+require_once dirname(dirname(dirname ( __FILE__ ))).'/aop/request/AlipayTradePagePayRequest.php';
 
 class AlipayTradeService {
 

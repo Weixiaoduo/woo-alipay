@@ -169,9 +169,9 @@ This key is secret and is not recorded in Alipay Open Platform - <strong>DO NOT 
 
     protected function is_wooalipay_enabled()
     {
-        $alipay_options = get_option('woocommerce_alipay_settings');
+        $alipay_options = get_option('woocommerce_alipay_settings', array());
 
-        return ('yes' === $alipay_options['enabled']);
+        return isset($alipay_options['enabled']) && ('yes' === $alipay_options['enabled']);
     }
 
     public function validate_settings()
@@ -201,8 +201,15 @@ This key is secret and is not recorded in Alipay Open Platform - <strong>DO NOT 
     {
         $is_available = ('yes' === $this->enabled) ? true : false;
 
-        if ($this->multi_currency_enabled) {
+        if (!$is_available) {
+            return false;
+        }
 
+        if ('yes' === $this->get_option('sandbox')) {
+            return true;
+        }
+
+        if ($this->multi_currency_enabled) {
             if (
                 !in_array(get_woocommerce_currency(), $this->supported_currencies, true) &&
                 !$this->exchange_rate
@@ -429,10 +436,6 @@ This key is secret and is not recorded in Alipay Open Platform - <strong>DO NOT 
 
         Woo_Alipay::require_lib($this->is_mobile() ? 'payment_mobile' : 'payment_computer');
 
-        if ($result instanceof WP_Error) {
-            self::log(__METHOD__ . ' Order #' . $order_id . ': ' . wc_print_r($result));
-        }
-
         $total = $this->maybe_convert_amount($order->get_total());
 
         if ($this->is_mobile()) {
@@ -594,23 +597,29 @@ This key is secret and is not recorded in Alipay Open Platform - <strong>DO NOT 
     public function check_alipay_response()
     {
         $response_data = $_POST; // @codingStandardsIgnoreLine
-        $out_trade_no = filter_input(INPUT_POST, 'out_trade_no', FILTER_SANITIZE_STRING);
-        $response_app_id = filter_input(INPUT_POST, 'app_id', FILTER_SANITIZE_STRING);
-        $trade_status = filter_input(INPUT_POST, 'trade_status', FILTER_SANITIZE_STRING);
-        $transaction_id = filter_input(INPUT_POST, 'trade_no', FILTER_SANITIZE_STRING);
-        $response_total = filter_input(INPUT_POST, 'total_amount', FILTER_SANITIZE_STRING);
-        $fund_bill_list = stripslashes(filter_input(INPUT_POST, 'fund_bill_list', FILTER_SANITIZE_STRING));
+        $out_trade_no = isset($_POST['out_trade_no']) ? sanitize_text_field($_POST['out_trade_no']) : '';
+        $response_app_id = isset($_POST['app_id']) ? sanitize_text_field($_POST['app_id']) : '';
+        $trade_status = isset($_POST['trade_status']) ? sanitize_text_field($_POST['trade_status']) : '';
+        $transaction_id = isset($_POST['trade_no']) ? sanitize_text_field($_POST['trade_no']) : '';
+        $response_total = isset($_POST['total_amount']) ? sanitize_text_field($_POST['total_amount']) : '';
+        $fund_bill_list = isset($_POST['fund_bill_list']) ? stripslashes(sanitize_text_field($_POST['fund_bill_list'])) : '';
         $needs_reply = false;
         $error = false;
         $out_trade_no_parts = explode('-', str_replace('WooA', '', $out_trade_no));
         $order_id = absint(array_shift($out_trade_no_parts));
         $order = wc_get_order($order_id);
+        $order_check = ($order instanceof WC_Order);
+        
+        if (!$order_check) {
+            self::log(__METHOD__ . ' Order #' . $order_id . ' not found.', 'error');
+            return;
+        }
+        
         $config = $this->get_config($order_id);
         $response_data['fund_bill_list'] = stripslashes($response_data['fund_bill_list']);
         $order_total = $this->maybe_convert_amount($order->get_total());
         $total_amount_check = ($order_total === $response_total);
         $response_app_id_check = ($response_app_id === $config['app_id']);
-        $order_check = ($order instanceof WC_Order);
 
         $order->add_meta_data('alipay_initalResponse', json_encode($_POST), true);
 

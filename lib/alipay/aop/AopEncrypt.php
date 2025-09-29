@@ -2,92 +2,77 @@
 /**
  *   加密工具类
  *
- * User: Alexandre Froger
- * Date: 20/01/20
- * Time: 下午9:06
+ * User: jiehua
+ * Date: 16/3/30
+ * Time: 下午3:25
  */
 
-function AESEncrypt($message, $encodingAesKey = '', $appId = '') {
-	$key = base64_decode($encodingAesKey . '=');
-	$text = AESRandom(16) . pack("N", strlen($message)) . $message . $appid;
-	$iv = substr($key, 0, 16);
-	$blockSize = 32;
-	$textLength = strlen($text);
-	$amountToPad = $blockSize - ($textLength % $blockSize);
-	
-	if (0 === $amountToPad) {
-		$amountToPad = $blockSize;
-	}
 
-	$padChr = chr($amountToPad);
-	$tmp = '';
+/**
+ * 加密方法
+ * @param string $str
+ * @return string
+ */
+function encrypt($str, $screct_key)
+{
+    //AES, 128 模式加密数据 CBC
+    $screct_key = base64_decode($screct_key);
+    $str = trim($str);
+    $str = addPKCS7Padding($str);
 
-	for ($i = 0; $i < $amountToPad; $i++) {
-		$tmp .= $padChr;
-	}
+    //设置全0的IV
 
-	$text = $text . $tmp; 
-
-	$encrypted = openssl_encrypt(
-		$text,
-		'AES-256-CBC',
-		$key,
-		OPENSSL_RAW_DATA |  OPENSSL_ZERO_PADDING,
-		$iv
-	);
-
-	$encryptMsg = base64_encode($encrypted);
-
-	return $encryptMsg;
+    $iv = str_repeat("\0", 16);
+    $encrypt_str = openssl_encrypt($str, 'aes-128-cbc', $screct_key, OPENSSL_NO_PADDING, $iv);
+    return base64_encode($encrypt_str);
 }
 
-function AESDecrypt($message, $encodingAesKey = '', $appId = '') {
-	$key = base64_decode($encodingAesKey);
-	$ciphertext = base64_decode($message);
-	$iv = substr($key, 0, 16);
+/**
+ * 解密方法
+ * @param string $str
+ * @return string
+ */
+function decrypt($str, $screct_key)
+{
+    //AES, 128 模式加密数据 CBC
+    $str = base64_decode($str);
+    $screct_key = base64_decode($screct_key);
 
-	$decrypted = openssl_decrypt(
-		$ciphertext,
-		'AES-256-CBC',
-		$key,
-		OPENSSL_RAW_DATA | OPENSSL_ZERO_PADDING,
-		$iv
-	);
-
-	$pad = ord(substr($decrypted, -1));
-
-	if ($pad < 1 || $pad > 32) {
-		$pad = 0;
-	}
-
-	$result = substr($decrypted, 0, (strlen($decrypted) - $pad));
-
-	if (strlen($result) < 16) {
-
-		return false;
-	}
-
-	$content = substr($result, 16);
-	$lenList = unpack("N", substr($content, 0, 4));
-	$len = $lenList[1];
-	$content = substr($content, 4, $len);
-	$fromAppId  = substr($content, $len + 4);
-
-	if ($fromAppId != $appId) {
-
-		return false;
-	}
-
-	return $content;
+    //设置全0的IV
+    $iv = str_repeat("\0", 16);
+    $decrypt_str = openssl_decrypt($str, 'aes-128-cbc', $screct_key, OPENSSL_NO_PADDING, $iv);
+    $decrypt_str = stripPKSC7Padding($decrypt_str);
+    return $decrypt_str;
 }
 
-function AESRandom($length = 16) {
-	$chars = "abcdefghijklmnopqrstuvwxyz0123456789";  
-	$str = "";
+/**
+ * 填充算法
+ * @param string $source
+ * @return string
+ */
+function addPKCS7Padding($source)
+{
+    $source = trim($source);
+    $block = 16;
 
-	for ($i = 0; $i < $length; $i++)  {  
-		$str .= substr($chars, mt_rand(0, strlen($chars)-1), 1);  
-	} 
+    $pad = $block - (strlen($source) % $block);
+    if ($pad <= $block) {
+        $char = chr($pad);
+        $source .= str_repeat($char, $pad);
+    }
+    return $source;
+}
 
-	return $str;
+/**
+ * 移去填充算法
+ * @param string $source
+ * @return string
+ */
+function stripPKSC7Padding($source)
+{
+    $char = substr($source, -1);
+    $num = ord($char);
+    if ($num == 62) return $source;
+    $source = substr($source, 0, -$num);
+    return $source;
 }

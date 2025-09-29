@@ -2,13 +2,14 @@
 /*
 Plugin Name: Woo Alipay
 Plugin URI: https://wenpai.org/plugins/woo-alipay
-Description: Integrate Woocommerce with Alipay (Mainland China).
-Version: 3.0
+Description: Integrate Woocommerce with Alipay (Mainland China). Supports WooCommerce Blocks and HPOS.
+Version: 3.1.0
 Author: WooCN.com
 Author URI: https://woocn.com/
 Text Domain: woo-alipay
 Domain Path: /languages
 WC tested up to: 10.0.1
+Requires Plugins: woocommerce
 */
 
 if ( ! defined( 'ABSPATH' ) ) {
@@ -29,12 +30,17 @@ if ( ! defined( 'WOO_ALIPAY_PLUGIN_URL' ) ) {
 
 require_once WOO_ALIPAY_PLUGIN_PATH . 'inc/class-woo-alipay.php';
 
+add_action( 'before_woocommerce_init', function() {
+	if ( class_exists( \Automattic\WooCommerce\Utilities\FeaturesUtil::class ) ) {
+		\Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'custom_order_tables', __FILE__, true );
+	}
+} );
+
 register_activation_hook( WOO_ALIPAY_PLUGIN_FILE, array( 'Woo_Alipay', 'activate' ) );
 register_deactivation_hook( WOO_ALIPAY_PLUGIN_FILE, array( 'Woo_Alipay', 'deactivate' ) );
 register_uninstall_hook( WOO_ALIPAY_PLUGIN_FILE, array( 'Woo_Alipay', 'uninstall' ) );
 
 function woo_alipay_run() {
-
 	if ( ! class_exists( 'WC_Payment_Gateway' ) ) {
 
 		return;
