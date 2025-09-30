@@ -45,13 +45,32 @@ function woo_alipay_run() {
 		return;
 	}
 
-	if ( file_exists( WOO_ALIPAY_PLUGIN_PATH . 'vendor/autoload.php' ) ) {
-		require_once WOO_ALIPAY_PLUGIN_PATH . 'vendor/autoload.php';
-	}
-
 	require_once WOO_ALIPAY_PLUGIN_PATH . 'inc/class-wc-alipay.php';
 
+	$alipay_lib_paths = array(
+		'payment_mobile'     => array(
+			'AlipayTradeService'              => WOO_ALIPAY_PLUGIN_PATH . 'lib/alipay/wappay/service/AlipayTradeService.php',
+			'AlipayTradeWapPayContentBuilder' => WOO_ALIPAY_PLUGIN_PATH . 'lib/alipay/wappay/buildermodel/AlipayTradeWapPayContentBuilder.php',
+		),
+		'payment_computer'   => array(
+			'AlipayTradeService'               => WOO_ALIPAY_PLUGIN_PATH . 'lib/alipay/pagepay/service/AlipayTradeService.php',
+			'AlipayTradePagePayContentBuilder' => WOO_ALIPAY_PLUGIN_PATH . 'lib/alipay/pagepay/buildermodel/AlipayTradePagePayContentBuilder.php',
+		),
+		'check_notification' => array(
+			'AlipayTradeService' => WOO_ALIPAY_PLUGIN_PATH . 'lib/alipay/pagepay/service/AlipayTradeService.php',
+		),
+		'refund'             => array(
+			'AlipayTradeService'              => WOO_ALIPAY_PLUGIN_PATH . 'lib/alipay/pagepay/service/AlipayTradeService.php',
+			'AlipayTradeRefundContentBuilder' => WOO_ALIPAY_PLUGIN_PATH . 'lib/alipay/pagepay/buildermodel/AlipayTradeRefundContentBuilder.php',
+			'AlipayTradeRefundRequest'        => WOO_ALIPAY_PLUGIN_PATH . 'lib/alipay/aop/request/AlipayTradeRefundRequest.php',
+		),
+		'dummy_query'        => array(
+			'AlipayTradeService'      => WOO_ALIPAY_PLUGIN_PATH . 'lib/alipay/pagepay/service/AlipayTradeService.php',
+			'AlipayTradeQueryRequest' => WOO_ALIPAY_PLUGIN_PATH . 'lib/alipay/aop/request/AlipayTradeQueryRequest.php',
+		),
+	);
+
 	$wc_alipay = new WC_Alipay( true );
-	$wooalipay = new Woo_Alipay( array(), true );
+	$wooalipay = new Woo_Alipay( $alipay_lib_paths, true );
 }
 add_action( 'init', 'woo_alipay_run', 0, 0 );
