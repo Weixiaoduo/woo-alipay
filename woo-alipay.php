@@ -28,11 +28,21 @@ if ( ! defined( 'WOO_ALIPAY_PLUGIN_URL' ) ) {
 	define( 'WOO_ALIPAY_PLUGIN_URL', plugin_dir_url( WOO_ALIPAY_PLUGIN_FILE ) );
 }
 
+if ( ! defined( 'WOO_ALIPAY_VERSION' ) ) {
+	define( 'WOO_ALIPAY_VERSION', '3.2.0' );
+}
+
 require_once WOO_ALIPAY_PLUGIN_PATH . 'inc/class-woo-alipay.php';
+
+// Load enable gateways helper
+if ( file_exists( WOO_ALIPAY_PLUGIN_PATH . 'enable-gateways.php' ) ) {
+	require_once WOO_ALIPAY_PLUGIN_PATH . 'enable-gateways.php';
+}
 
 add_action( 'before_woocommerce_init', function() {
 	if ( class_exists( \Automattic\WooCommerce\Utilities\FeaturesUtil::class ) ) {
 		\Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'custom_order_tables', __FILE__, true );
+		\Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'cart_checkout_blocks', __FILE__, true );
 	}
 } );
 
@@ -46,6 +56,33 @@ function woo_alipay_run() {
 	}
 
 	require_once WOO_ALIPAY_PLUGIN_PATH . 'inc/class-wc-alipay.php';
+	
+	// Load SDK helper class
+	if ( file_exists( WOO_ALIPAY_PLUGIN_PATH . 'inc/class-alipay-sdk-helper.php' ) ) {
+		require_once WOO_ALIPAY_PLUGIN_PATH . 'inc/class-alipay-sdk-helper.php';
+	}
+	
+	// Load new payment gateways
+	if ( file_exists( WOO_ALIPAY_PLUGIN_PATH . 'inc/class-wc-alipay-installment.php' ) ) {
+		require_once WOO_ALIPAY_PLUGIN_PATH . 'inc/class-wc-alipay-installment.php';
+	}
+	
+	if ( file_exists( WOO_ALIPAY_PLUGIN_PATH . 'inc/class-wc-alipay-facetopay.php' ) ) {
+		require_once WOO_ALIPAY_PLUGIN_PATH . 'inc/class-wc-alipay-facetopay.php';
+	}
+	
+	// Load enhanced payment features
+	if ( file_exists( WOO_ALIPAY_PLUGIN_PATH . 'inc/class-wc-alipay-order-query.php' ) ) {
+		require_once WOO_ALIPAY_PLUGIN_PATH . 'inc/class-wc-alipay-order-query.php';
+	}
+	
+	if ( file_exists( WOO_ALIPAY_PLUGIN_PATH . 'inc/class-wc-alipay-order-timeout.php' ) ) {
+		require_once WOO_ALIPAY_PLUGIN_PATH . 'inc/class-wc-alipay-order-timeout.php';
+	}
+	
+	if ( file_exists( WOO_ALIPAY_PLUGIN_PATH . 'inc/class-wc-alipay-webhook-retry.php' ) ) {
+		require_once WOO_ALIPAY_PLUGIN_PATH . 'inc/class-wc-alipay-webhook-retry.php';
+	}
 
 	$alipay_lib_paths = array(
 		'payment_mobile'     => array(

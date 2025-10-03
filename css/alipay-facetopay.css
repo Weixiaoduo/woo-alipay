@@ -1,0 +1,201 @@
+/**
+ * 当面付支付样式
+ */
+
+.alipay-qrcode-container {
+    max-width: 500px;
+    margin: 30px auto;
+    padding: 30px;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+    text-align: center;
+}
+
+.alipay-qrcode-header {
+    margin-bottom: 20px;
+}
+
+.alipay-qrcode-header h2 {
+    margin: 0 0 10px 0;
+    font-size: 24px;
+    color: #333;
+}
+
+.alipay-qrcode-header .order-info {
+    font-size: 16px;
+    color: #666;
+}
+
+.alipay-qrcode-header .order-amount {
+    font-size: 32px;
+    font-weight: 700;
+    color: #1677ff;
+    margin: 15px 0;
+}
+
+.alipay-qrcode-wrapper {
+    margin: 20px 0;
+    padding: 20px;
+    background: #f9f9f9;
+    border-radius: 8px;
+    display: inline-block;
+}
+
+#alipay-qrcode {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+#alipay-qrcode canvas,
+#alipay-qrcode img {
+    max-width: 100%;
+    height: auto;
+    border: 8px solid #fff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+}
+
+.alipay-qrcode-tips {
+    margin-top: 20px;
+    padding: 15px;
+    background: #f0f7ff;
+    border: 1px solid #d6e4ff;
+    border-radius: 4px;
+    color: #096dd9;
+}
+
+.alipay-qrcode-tips p {
+    margin: 8px 0;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.alipay-qrcode-tips .tip-icon {
+    display: inline-block;
+    margin-right: 5px;
+    font-weight: bold;
+}
+
+.alipay-payment-status {
+    margin-top: 20px;
+    padding: 15px;
+    background: #fff9e6;
+    border: 1px solid #ffd666;
+    border-radius: 4px;
+}
+
+.alipay-payment-status.success {
+    background: #f6ffed;
+    border-color: #b7eb8f;
+    color: #52c41a;
+}
+
+.alipay-payment-status.error {
+    background: #fff1f0;
+    border-color: #ffa39e;
+    color: #ff4d4f;
+}
+
+.alipay-payment-status .status-icon {
+    display: inline-block;
+    margin-right: 8px;
+    font-size: 18px;
+}
+
+.alipay-payment-status .status-text {
+    font-size: 15px;
+    font-weight: 500;
+}
+
+.alipay-qrcode-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 300px;
+}
+
+.alipay-qrcode-loading .spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid #f0f0f0;
+    border-top: 4px solid #1677ff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.alipay-qrcode-loading .loading-text {
+    margin-top: 15px;
+    font-size: 14px;
+    color: #666;
+}
+
+.alipay-qrcode-expired {
+    padding: 30px;
+    text-align: center;
+}
+
+.alipay-qrcode-expired .expired-icon {
+    font-size: 48px;
+    color: #ff4d4f;
+    margin-bottom: 15px;
+}
+
+.alipay-qrcode-expired .expired-text {
+    font-size: 16px;
+    color: #666;
+    margin-bottom: 20px;
+}
+
+.alipay-qrcode-expired .refresh-button {
+    padding: 10px 30px;
+    background: #1677ff;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 15px;
+    transition: background 0.3s;
+}
+
+.alipay-qrcode-expired .refresh-button:hover {
+    background: #4096ff;
+}
+
+.alipay-qrcode-timer {
+    margin-top: 15px;
+    font-size: 14px;
+    color: #999;
+}
+
+.alipay-qrcode-timer.warning {
+    color: #ff4d4f;
+    font-weight: 600;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+    .alipay-qrcode-container {
+        margin: 15px;
+        padding: 20px;
+    }
+    
+    .alipay-qrcode-header h2 {
+        font-size: 20px;
+    }
+    
+    .alipay-qrcode-header .order-amount {
+        font-size: 28px;
+    }
+    
+    .alipay-qrcode-wrapper {
+        padding: 15px;
+    }
+}

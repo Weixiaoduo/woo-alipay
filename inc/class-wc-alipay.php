@@ -202,6 +202,9 @@ class WC_Alipay extends WC_Payment_Gateway
                 'description' => __('配置汇率转换和连接测试等高级功能', 'woo-alipay'),
             ),
         );
+        
+        // 添加支付增强功能设置
+        $this->add_payment_enhancement_settings();
 
         if (!in_array($this->current_currency, $this->supported_currencies, true)) {
             $current_rate = $this->get_option('exchange_rate', '7.0');
@@ -233,6 +236,175 @@ class WC_Alipay extends WC_Payment_Gateway
         );
     }
 
+    /**
+     * Add payment enhancement settings
+     */
+    protected function add_payment_enhancement_settings()
+    {
+        // 支付增强功能标题
+        $this->form_fields['payment_enhancement_title'] = array(
+            'title' => __('支付增强功能', 'woo-alipay'),
+            'type' => 'title',
+            'description' => __('配置自动查询、超时处理、实时反馈和 Webhook 重试等增强功能', 'woo-alipay'),
+        );
+        
+        // 订单状态自动查询
+        $this->form_fields['enable_order_query'] = array(
+            'title' => __('订单状态自动查询', 'woo-alipay'),
+            'type' => 'checkbox',
+            'label' => __('启用自动查询功能', 'woo-alipay'),
+            'default' => 'yes',
+            'description' => __('自动查询待支付订单的支付状态，避免用户支付成功但订单未更新的情况', 'woo-alipay'),
+            'desc_tip' => false,
+        );
+        
+        $this->form_fields['order_query_interval'] = array(
+            'title' => __('查询间隔', 'woo-alipay'),
+            'type' => 'select',
+            'default' => '5',
+            'options' => array(
+                '5' => __('5 分钟', 'woo-alipay'),
+                '10' => __('10 分钟', 'woo-alipay'),
+                '15' => __('15 分钟', 'woo-alipay'),
+                '30' => __('30 分钟', 'woo-alipay'),
+            ),
+            'description' => __('定时查询待支付订单的时间间隔', 'woo-alipay'),
+            'desc_tip' => true,
+        );
+        
+        $this->form_fields['order_query_time_range'] = array(
+            'title' => __('查询时间范围', 'woo-alipay'),
+            'type' => 'select',
+            'default' => '24',
+            'options' => array(
+                '6' => __('6 小时内', 'woo-alipay'),
+                '12' => __('12 小时内', 'woo-alipay'),
+                '24' => __('24 小时内', 'woo-alipay'),
+                '48' => __('48 小时内', 'woo-alipay'),
+                '72' => __('72 小时内', 'woo-alipay'),
+            ),
+            'description' => __('只查询指定时间范围内创建的订单', 'woo-alipay'),
+            'desc_tip' => true,
+        );
+        
+        // 订单超时自动取消
+        $this->form_fields['enable_order_timeout'] = array(
+            'title' => __('订单超时自动取消', 'woo-alipay'),
+            'type' => 'checkbox',
+            'label' => __('启用超时取消功能', 'woo-alipay'),
+            'default' => 'yes',
+            'description' => __('自动取消超时未支付的订单，释放库存', 'woo-alipay'),
+            'desc_tip' => false,
+        );
+        
+        $this->form_fields['order_timeout'] = array(
+            'title' => __('订单超时时间', 'woo-alipay'),
+            'type' => 'number',
+            'default' => '30',
+            'description' => __('未支付订单的超时时间（分钟）。超时后订单将自动取消。', 'woo-alipay'),
+            'desc_tip' => true,
+            'custom_attributes' => array(
+                'min' => '5',
+                'max' => '1440',
+                'step' => '5',
+            ),
+            'css' => 'width: 100px;',
+        );
+        
+        // 支付状态实时反馈
+        $this->form_fields['enable_payment_polling'] = array(
+            'title' => __('支付状态实时反馈', 'woo-alipay'),
+            'type' => 'checkbox',
+            'label' => __('启用支付轮询功能', 'woo-alipay'),
+            'default' => 'yes',
+            'description' => __('在支付页面自动轮询检测支付完成状态，无需用户手动刷新', 'woo-alipay'),
+            'desc_tip' => false,
+        );
+        
+        $this->form_fields['polling_interval'] = array(
+            'title' => __('轮询间隔', 'woo-alipay'),
+            'type' => 'number',
+            'default' => '3',
+            'description' => __('每次查询的间隔时间（秒）', 'woo-alipay'),
+            'desc_tip' => true,
+            'custom_attributes' => array(
+                'min' => '2',
+                'max' => '10',
+                'step' => '1',
+            ),
+            'css' => 'width: 100px;',
+        );
+        
+        $this->form_fields['polling_max_attempts'] = array(
+            'title' => __('最大轮询次数', 'woo-alipay'),
+            'type' => 'number',
+            'default' => '60',
+            'description' => __('最多轮询次数，达到后停止轮询', 'woo-alipay'),
+            'desc_tip' => true,
+            'custom_attributes' => array(
+                'min' => '10',
+                'max' => '120',
+                'step' => '10',
+            ),
+            'css' => 'width: 100px;',
+        );
+        
+        // Webhook 重试机制
+        $this->form_fields['enable_webhook_retry'] = array(
+            'title' => __('Webhook 重试机制', 'woo-alipay'),
+            'type' => 'checkbox',
+            'label' => __('启用 Webhook 重试', 'woo-alipay'),
+            'default' => 'yes',
+            'description' => __('记录并自动重试失败的支付宝通知', 'woo-alipay'),
+            'desc_tip' => false,
+        );
+        
+        $this->form_fields['webhook_max_retries'] = array(
+            'title' => __('最大重试次数', 'woo-alipay'),
+            'type' => 'number',
+            'default' => '5',
+            'description' => __('Webhook 失败后的最大重试次数', 'woo-alipay'),
+            'desc_tip' => true,
+            'custom_attributes' => array(
+                'min' => '1',
+                'max' => '10',
+                'step' => '1',
+            ),
+            'css' => 'width: 100px;',
+        );
+        
+        $this->form_fields['webhook_retry_interval'] = array(
+            'title' => __('重试间隔', 'woo-alipay'),
+            'type' => 'select',
+            'default' => '10',
+            'options' => array(
+                '5' => __('5 分钟', 'woo-alipay'),
+                '10' => __('10 分钟', 'woo-alipay'),
+                '15' => __('15 分钟', 'woo-alipay'),
+                '30' => __('30 分钟', 'woo-alipay'),
+                '60' => __('1 小时', 'woo-alipay'),
+            ),
+            'description' => __('两次重试之间的最小间隔时间', 'woo-alipay'),
+            'desc_tip' => true,
+        );
+        
+        $this->form_fields['webhook_log_retention'] = array(
+            'title' => __('日志保留时间', 'woo-alipay'),
+            'type' => 'select',
+            'default' => '30',
+            'options' => array(
+                '7' => __('7 天', 'woo-alipay'),
+                '15' => __('15 天', 'woo-alipay'),
+                '30' => __('30 天', 'woo-alipay'),
+                '60' => __('60 天', 'woo-alipay'),
+                '90' => __('90 天', 'woo-alipay'),
+                '0' => __('永久保留', 'woo-alipay'),
+            ),
+            'description' => __('Webhook 日志的保留时间，过期后自动删除', 'woo-alipay'),
+            'desc_tip' => true,
+        );
+    }
+    
     public function generate_test_connection_html($key, $data)
     {
         $field_key = $this->get_field_key($key);
