@@ -35,6 +35,9 @@ class Woo_Alipay {
 			
 			// Add WooCommerce Blocks support
 			$this->woocommerce_gateway_alipay_woocommerce_block_support();
+
+			// Enhance Payments providers response with contextual links for Alipay gateways
+			add_filter( 'rest_post_dispatch', array( $this, 'filter_payments_providers_response' ), 10, 3 );
 		}
 	}
 
@@ -151,39 +154,53 @@ class Woo_Alipay {
 		}
 	}
 
-	public function add_admin_scripts( $hook ) {
+    public function add_admin_scripts( $hook ) {
 
-		if ( 'woocommerce_page_wc-settings' === $hook ) {
-			$debug       = (bool) ( constant( 'WP_DEBUG' ) );
-			$css_ext     = ( $debug ) ? '.css' : '.min.css';
-			$js_ext      = ( $debug ) ? '.js' : '.min.js';
-			$version_css = filemtime( WOO_ALIPAY_PLUGIN_PATH . 'css/admin/main' . $css_ext );
-			$version_js  = filemtime( WOO_ALIPAY_PLUGIN_PATH . 'js/admin/main' . $js_ext );
+        if ( 'woocommerce_page_wc-settings' !== $hook ) {
+            return;
+        }
 
-			wp_enqueue_style(
-				'woo-alipay-main-style',
-				WOO_ALIPAY_PLUGIN_URL . 'css/admin/main' . $css_ext,
-				array(),
-				$version_css
-			);
+        // Only load our admin assets on our gateway settings sections, not on the Payments list view.
+        $tab     = isset( $_GET['tab'] ) ? sanitize_key( wp_unslash( $_GET['tab'] ) ) : '';
+        $section = isset( $_GET['section'] ) ? sanitize_key( wp_unslash( $_GET['section'] ) ) : '';
+        $our_sections = array( 'alipay', 'alipay_installment', 'alipay_facetopay' );
+        if ( 'checkout' !== $tab || ! in_array( $section, $our_sections, true ) ) {
+            return;
+        }
 
-			$parameters = array(
-				'ajax_url' => admin_url( 'admin-ajax.php' ),
-				'debug'    => $debug,
-			);
+        $debug       = (bool) ( constant( 'WP_DEBUG' ) );
+        $css_ext     = ( $debug ) ? '.css' : '.min.css';
+        $js_ext      = ( $debug ) ? '.js' : '.min.js';
+        $version_css = filemtime( WOO_ALIPAY_PLUGIN_PATH . 'css/admin/main' . $css_ext );
+        $version_js  = filemtime( WOO_ALIPAY_PLUGIN_PATH . 'js/admin/main' . $js_ext );
 
-			wp_enqueue_script(
-				'woo-alipay-admin-script',
-				WOO_ALIPAY_PLUGIN_URL . 'js/admin/main' . $js_ext,
-				array( 'jquery' ),
-				$version_js,
-				true
-			);
-			wp_localize_script( 'woo-alipay-admin-script', 'WooAlipay', $parameters );
-		}
+        wp_enqueue_style(
+            'woo-alipay-main-style',
+            WOO_ALIPAY_PLUGIN_URL . 'css/admin/main' . $css_ext,
+            array(),
+            $version_css
+        );
+
+        $parameters = array(
+            'ajax_url' => admin_url( 'admin-ajax.php' ),
+            'debug'    => $debug,
+        );
+
+        wp_enqueue_script(
+            'woo-alipay-admin-script',
+            WOO_ALIPAY_PLUGIN_URL . 'js/admin/main' . $js_ext,
+            array( 'jquery' ),
+            $version_js,
+            true
+        );
+        wp_localize_script( 'woo-alipay-admin-script', 'WooAlipay', $parameters );
     }
 
     public function add_admin_pages() {
+        // If the dedicated Reconcile Pro extension is active, avoid adding a duplicate menu.
+        if ( class_exists( 'Woo_Alipay_Reconcile_Admin' ) ) {
+            return;
+        }
         add_submenu_page(
             'woocommerce',
             __( '支付宝对账工具', 'woo-alipay' ),
@@ -192,6 +209,88 @@ class Woo_Alipay {
             'woo-alipay-reconcile',
             array( $this, 'render_admin_reconcile_page' )
         );
+    }
+
+    /**
+     * Inject provider links into the WooCommerce Payments providers REST response.
+     */
+    public function filter_payments_providers_response( $response, $server, $request ) {
+        try {
+            // Allow site owners to disable this injection for troubleshooting.
+            if ( false === apply_filters( 'woo_alipay_enable_payments_links_injection', true ) ) {
+                return $response;
+            }
+
+            if ( ! $response || ! is_a( $response, 'WP_REST_Response' ) ) {
+                return $response;
+            }
+
+            $route  = is_object( $request ) && method_exists( $request, 'get_route' ) ? (string) $request->get_route() : '';
+            $method = is_object( $request ) && method_exists( $request, 'get_method' ) ? (string) $request->get_method() : '';
+
+            // Only act on the Payments providers endpoint used by the settings page (POST /wc-admin/settings/payments/providers).
+            if ( false === strpos( $route, '/wc-admin/settings/payments/providers' ) || 'POST' !== strtoupper( $method ) ) {
+                return $response;
+            }
+
+            $data = $response->get_data();
+            if ( ! is_array( $data ) || empty( $data['providers'] ) || ! is_array( $data['providers'] ) ) {
+                return $response;
+            }
+
+            $pricing_url = apply_filters( 'woo_alipay_pricing_url', 'https://woocn.com/product/woo-alipay.html#pricing' );
+            $about_url   = apply_filters( 'woo_alipay_learn_more_url', 'https://woocn.com/document/woo-alipay' );
+            $terms_url   = apply_filters( 'woo_alipay_terms_url', 'https://woocn.com/terms' );
+            $docs_url    = apply_filters( 'woo_alipay_docs_url', 'https://woocn.com/document/woo-alipay' );
+            $support_url = apply_filters( 'woo_alipay_support_url', 'https://woocn.com/support' );
+
+            $target_ids = array( 'alipay', 'alipay_installment', 'alipay_facetopay' );
+
+            foreach ( $data['providers'] as $idx => $provider ) {
+                if ( ! is_array( $provider ) || empty( $provider['id'] ) || ! in_array( $provider['id'], $target_ids, true ) ) {
+                    continue;
+                }
+
+                $links = array();
+                if ( isset( $provider['links'] ) && is_array( $provider['links'] ) ) {
+                    $links = $provider['links'];
+                }
+
+                // Track existing link types to avoid duplicates.
+                $existing_types = array();
+                foreach ( $links as $link ) {
+                    if ( is_array( $link ) && ! empty( $link['_type'] ) ) {
+                        $existing_types[] = $link['_type'];
+                    }
+                }
+
+                $to_add = array(
+                    array( '_type' => 'pricing',        'url' => esc_url_raw( $pricing_url ) ),
+                    array( '_type' => 'about',          'url' => esc_url_raw( $about_url ) ),
+                    array( '_type' => 'terms',          'url' => esc_url_raw( $terms_url ) ),
+                    array( '_type' => 'documentation',  'url' => esc_url_raw( $docs_url ) ),
+                    array( '_type' => 'support',        'url' => esc_url_raw( $support_url ) ),
+                );
+
+                foreach ( $to_add as $entry ) {
+                    if ( empty( $entry['_type'] ) || empty( $entry['url'] ) ) {
+                        continue;
+                    }
+                    if ( in_array( $entry['_type'], $existing_types, true ) ) {
+                        continue;
+                    }
+                    $links[] = $entry;
+                }
+
+                $data['providers'][ $idx ]['links'] = $links;
+            }
+
+            $response->set_data( $data );
+        } catch ( \Throwable $e ) {
+            // Fail-safe: do not block the response.
+        }
+
+        return $response;
     }
 
     public function render_admin_reconcile_page() {
@@ -248,16 +347,15 @@ class Woo_Alipay {
         echo '</form></div>';
     }
 
-    public function add_gateway( $methods ) {
+	public function add_gateway( $methods ) {
 		$methods[] = 'WC_Alipay';
-		$methods[] = 'WC_Alipay_Installment';
-		$methods[] = 'WC_Alipay_FaceToPay';
 
+		// Extension gateways are registered by their own plugins now.
 		return $methods;
 	}
 
 	public function plugin_edit_link( $links ) {
-		$url = admin_url( 'admin.php?page=wc-settings&tab=checkout&section=woo_alipay' );
+		$url = admin_url( 'admin.php?page=wc-settings&tab=checkout&section=alipay' );
 
 		return array_merge(
 			array(
@@ -331,24 +429,11 @@ class Woo_Alipay {
 				if ( file_exists( WOO_ALIPAY_PLUGIN_PATH . 'inc/class-wc-alipay-blocks-support.php' ) ) {
 					require_once WOO_ALIPAY_PLUGIN_PATH . 'inc/class-wc-alipay-blocks-support.php';
 				}
-				if ( file_exists( WOO_ALIPAY_PLUGIN_PATH . 'inc/class-wc-alipay-installment-blocks-support.php' ) ) {
-					require_once WOO_ALIPAY_PLUGIN_PATH . 'inc/class-wc-alipay-installment-blocks-support.php';
-				}
-				if ( file_exists( WOO_ALIPAY_PLUGIN_PATH . 'inc/class-wc-alipay-facetopay-blocks-support.php' ) ) {
-					require_once WOO_ALIPAY_PLUGIN_PATH . 'inc/class-wc-alipay-facetopay-blocks-support.php';
-				}
 
-				// 注册主支付宝网关
+
+				// 注册主支付宝网关（扩展的 Blocks 支持由扩展自身注册）
 				if ( class_exists( 'WC_Alipay_Blocks_Support' ) ) {
 					$payment_method_registry->register( new WC_Alipay_Blocks_Support() );
-				}
-				// 注册花呗分期网关
-				if ( class_exists( 'WC_Alipay_Installment_Blocks_Support' ) ) {
-					$payment_method_registry->register( new WC_Alipay_Installment_Blocks_Support() );
-				}
-				// 注册当面付网关
-				if ( class_exists( 'WC_Alipay_FaceToPay_Blocks_Support' ) ) {
-					$payment_method_registry->register( new WC_Alipay_FaceToPay_Blocks_Support() );
 				}
 			}
 		);

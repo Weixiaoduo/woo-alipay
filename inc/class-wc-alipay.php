@@ -63,6 +63,7 @@ class WC_Alipay extends WC_Payment_Gateway
             'subscription_amount_changes',
             'subscription_date_changes',
             'multiple_subscriptions',
+            'tokenization',
         );
 
         self::$log_enabled = ('yes' === $this->get_option('debug', 'no'));
@@ -73,6 +74,12 @@ class WC_Alipay extends WC_Payment_Gateway
 
         $this->setup_form_fields();
         $this->init_settings();
+
+
+        // Register subscription scheduled payment hook
+        if ( class_exists('WC_Subscriptions') || function_exists('wcs_order_contains_subscription') || function_exists('wcs_is_subscription') ) {
+            add_action('woocommerce_scheduled_subscription_payment_' . $this->id, array($this, 'scheduled_subscription_payment'), 10, 2);
+        }
 
         if ($init_hooks) {
             // Add save gateway options callback
@@ -98,6 +105,100 @@ class WC_Alipay extends WC_Payment_Gateway
             }
 
             $this->validate_settings();
+        }
+    }
+
+        /**
+     * Woo Subscriptions: scheduled payment callback
+     *
+     * @param float      $amount_to_charge
+     * @param WC_Order   $renewal_order
+     */
+    public function scheduled_subscription_payment( $amount_to_charge, $renewal_order )
+    {
+        try {
+            if ( 'yes' !== $this->get_option( 'enable_auto_renew', 'no' ) ) {
+                $renewal_order->add_order_note( __( '未启用自动续费，跳过代扣。', 'woo-alipay' ) );
+                $renewal_order->update_status( 'failed', __( '自动续费未启用', 'woo-alipay' ) );
+                return;
+            }
+
+            $user_id = $renewal_order->get_user_id();
+            if ( ! $user_id || ! class_exists( 'WC_Alipay_Agreement' ) ) {
+                $renewal_order->update_status( 'failed', __( '找不到用户或协议管理不可用。', 'woo-alipay' ) );
+                return;
+            }
+
+            $agreement_no = WC_Alipay_Agreement::get_user_agreement_no( $user_id );
+            if ( ! $agreement_no ) {
+                $renewal_order->update_status( 'failed', __( '未查询到支付宝扣款协议，请先完成签约。', 'woo-alipay' ) );
+                return;
+            }
+
+            require_once WOO_ALIPAY_PLUGIN_PATH . 'inc/class-alipay-sdk-helper.php';
+            require_once WOO_ALIPAY_PLUGIN_PATH . 'lib/alipay/aop/AopClient.php';
+            require_once WOO_ALIPAY_PLUGIN_PATH . 'lib/alipay/aop/request/AlipayTradeCreateRequest.php';
+
+            $config = Alipay_SDK_Helper::get_alipay_config( array(
+                'appid'       => $this->get_option('appid'),
+                'private_key' => $this->get_option('private_key'),
+                'public_key'  => $this->get_option('public_key'),
+                'sandbox'     => $this->get_option('sandbox'),
+            ) );
+
+            $aop = Alipay_SDK_Helper::create_alipay_service( $config );
+            if ( ! $aop ) {
+                $renewal_order->update_status( 'failed', __( '创建支付宝服务失败（自动续费）。', 'woo-alipay' ) );
+                return;
+            }
+
+            $out_trade_no = 'SubR' . $renewal_order->get_id() . '-' . current_time('timestamp');
+            // 记录到订单元数据，便于回调查询定位
+            $renewal_order->update_meta_data( '_alipay_out_trade_no', $out_trade_no );
+            $renewal_order->save();
+
+            $total = $this->maybe_convert_amount( $amount_to_charge );
+            $subject = $this->get_option( 'auto_renew_subject_prefix', __( '订阅续费', 'woo-alipay' ) ) . ' - #' . $renewal_order->get_id();
+
+            $product_code = apply_filters( 'woo_alipay_agreement_trade_product_code', $this->get_option( 'agreement_product_code', 'CYCLE_PAY_AUTH' ), $renewal_order );
+            $biz = array(
+                'out_trade_no'   => $out_trade_no,
+                'total_amount'   => $total,
+                'subject'        => $subject,
+                'product_code'   => $product_code,
+                'agreement_params' => array(
+                    'agreement_no' => $agreement_no,
+                ),
+            );
+
+            $biz = apply_filters( 'woo_alipay_agreement_trade_biz_content', $biz, $renewal_order, $agreement_no );
+
+            $request = new AlipayTradeCreateRequest();
+            $request->setBizContent( wp_json_encode( $biz ) );
+            $request->setNotifyUrl( apply_filters( 'woo_alipay_gateway_notify_url', $this->notify_url, $renewal_order->get_id() ) );
+
+            $response = $aop->execute( $request );
+            $node = 'alipay_trade_create_response';
+            $result = $response->$node ?? null;
+
+            if ( ! $result || ! isset( $result->code ) || '10000' !== $result->code ) {
+                self::log( __METHOD__ . ' TradeCreate error: ' . wc_print_r( $response, true ), 'error' );
+                $renewal_order->update_status( 'failed', __( '支付宝代扣下单失败。', 'woo-alipay' ) );
+                return;
+            }
+
+            // 可选：立即查询一次状态
+            $query = Alipay_SDK_Helper::query_order( $out_trade_no, '', $config );
+            if ( ! is_wp_error( $query ) && ! empty( $query['trade_status'] ) && in_array( $query['trade_status'], array( 'TRADE_SUCCESS', 'TRADE_FINISHED' ), true ) ) {
+                $renewal_order->payment_complete( $query['trade_no'] );
+                $renewal_order->add_order_note( sprintf( __( '自动续费成功，交易号：%s', 'woo-alipay' ), $query['trade_no'] ) );
+            } else {
+                // 等待异步通知回调完成订单
+                $renewal_order->add_order_note( __( '已发起支付宝代扣，等待异步通知确认。', 'woo-alipay' ) );
+            }
+        } catch ( Exception $e ) {
+            self::log( __METHOD__ . ' exception: ' . $e->getMessage(), 'error' );
+            $renewal_order->update_status( 'failed', $e->getMessage() );
         }
     }
 
@@ -195,16 +296,62 @@ class WC_Alipay extends WC_Payment_Gateway
                 ),
                 'desc_tip' => false,
             ),
-            
-            'advanced_settings_title' => array(
-                'title' => __('高级设置', 'woo-alipay'),
-                'type' => 'title',
-                'description' => __('配置汇率转换和连接测试等高级功能', 'woo-alipay'),
-            ),
+
+        );
+
+        // 将“支付增强功能”分组提前到“环境与调试”之后
+        $this->add_payment_enhancement_settings();
+
+        // 后续是“高级设置”和“订阅与自动续费（实验性）”
+        $this->form_fields = array_merge(
+            $this->form_fields,
+            array(
+                'advanced_settings_title' => array(
+                    'title' => __('高级设置', 'woo-alipay'),
+                    'type' => 'title',
+                    'description' => __('配置汇率转换和连接测试等高级功能', 'woo-alipay'),
+                ),
+            )
+        );
+
+            // Subscriptions & Auto-renew (Experimental)
+
+        // 订阅与自动续费（实验性）分组与字段
+        $this->form_fields['subscriptions_title'] = array(
+            'title' => __('订阅与自动续费（实验性）', 'woo-alipay'),
+            'type'  => 'title',
+            'description' => __('启用后，支持 WooCommerce Subscriptions 的自动续费。需要先在支付宝签约周期扣款。', 'woo-alipay'),
+        );
+        $this->form_fields['enable_auto_renew'] = array(
+            'title' => __('启用自动续费', 'woo-alipay'),
+            'type'  => 'checkbox',
+            'label' => __('允许通过支付宝协议代扣进行订阅续费', 'woo-alipay'),
+            'default' => 'no',
+        );
+        $this->form_fields['agreement_product_code'] = array(
+            'title' => __('签约/代扣产品码', 'woo-alipay'),
+            'type'  => 'text',
+            'default' => 'CYCLE_PAY_AUTH',
+            'description' => __('用于协议签约与代扣的产品码。不同商户开通能力可能不同，可通过过滤器覆盖。', 'woo-alipay'),
+            'desc_tip' => true,
+        );
+        $this->form_fields['auto_renew_subject_prefix'] = array(
+            'title' => __('续费订单标题前缀', 'woo-alipay'),
+            'type'  => 'text',
+            'default' => __('订阅续费', 'woo-alipay'),
         );
         
-        // 添加支付增强功能设置
-        $this->add_payment_enhancement_settings();
+        // 仅当安装并启用了 WooCommerce Subscriptions 时，展示自动续费设置
+        if ( ! ( class_exists('WC_Subscriptions') || function_exists('wcs_order_contains_subscription') || function_exists('wcs_is_subscription') ) ) {
+            unset(
+                $this->form_fields['enable_auto_renew'],
+                $this->form_fields['agreement_product_code'],
+                $this->form_fields['auto_renew_subject_prefix']
+            );
+            if ( isset( $this->form_fields['subscriptions_title'] ) ) {
+                $this->form_fields['subscriptions_title']['description'] = __( '需要安装并启用 WooCommerce Subscriptions 才能设置自动续费。', 'woo-alipay' );
+            }
+        }
 
         if (!in_array($this->current_currency, $this->supported_currencies, true)) {
             $current_rate = $this->get_option('exchange_rate', '7.0');
@@ -653,7 +800,7 @@ class WC_Alipay extends WC_Payment_Gateway
         $config = array(
             'app_id' => $this->get_option('appid'),
             'merchant_private_key' => $this->get_option('private_key'),
-            'notify_url' => $this->notify_url,
+            'notify_url' => apply_filters('woo_alipay_gateway_notify_url', $this->notify_url, $order_id),
             'return_url' => apply_filters('woo_alipay_gateway_return_url', ($order) ? $order->get_checkout_order_received_url() : get_home_url()),
             'charset' => $this->charset,
             'sign_type' => 'RSA2',
@@ -843,11 +990,50 @@ class WC_Alipay extends WC_Payment_Gateway
         echo '</p>';
         echo '</div>';
 
+
+        // 实用端点与工具
+        $notify_url = apply_filters( 'woo_alipay_gateway_notify_url', $this->notify_url, 0 );
+        echo '<div class="card" style="padding:12px; margin:12px 0;">';
+        echo '<h2 style="margin-top:0;">' . esc_html__( '工具与端点', 'woo-alipay' ) . '</h2>';
+        echo '<p>' . esc_html__( '异步通知 URL（请在支付宝开放平台中配置为支付结果通知 URL）', 'woo-alipay' ) . '</p>';
+        echo '<p><code id="woo-alipay-notify-url">' . esc_html( $notify_url ) . '</code> ';
+        echo '<button type="button" class="button" onclick="wooAlipayCopy(\'#woo-alipay-notify-url\')">' . esc_html__( '复制', 'woo-alipay' ) . '</button></p>';
+
+        // 若支持订阅，展示签约相关端点
+        $subs_available = ( class_exists('WC_Subscriptions') || function_exists('wcs_order_contains_subscription') || function_exists('wcs_is_subscription') );
+        if ( $subs_available ) {
+            $start_url   = WC()->api_request_url( 'WC_Alipay_Agreement_Start' );
+            $notify_agre = WC()->api_request_url( 'WC_Alipay_Agreement_Notify' );
+            $return_agre = WC()->api_request_url( 'WC_Alipay_Agreement_Return' );
+            echo '<hr/>';
+            echo '<p>' . esc_html__( '签约端点（用于支付宝协议授权与回调）', 'woo-alipay' ) . '</p>';
+            echo '<ul style="margin-left:1em;">';
+            echo '<li>' . esc_html__( '签约启动', 'woo-alipay' ) . ': <code id="woo-alipay-sign-start">' . esc_html( $start_url ) . '</code> <button type="button" class="button" onclick="wooAlipayCopy(\'#woo-alipay-sign-start\')">' . esc_html__( '复制', 'woo-alipay' ) . '</button></li>';
+            echo '<li>' . esc_html__( '签约通知', 'woo-alipay' ) . ': <code id="woo-alipay-sign-notify">' . esc_html( $notify_agre ) . '</code> <button type="button" class="button" onclick="wooAlipayCopy(\'#woo-alipay-sign-notify\')">' . esc_html__( '复制', 'woo-alipay' ) . '</button></li>';
+            echo '<li>' . esc_html__( '签约返回', 'woo-alipay' ) . ': <code id="woo-alipay-sign-return">' . esc_html( $return_agre ) . '</code> <button type="button" class="button" onclick="wooAlipayCopy(\'#woo-alipay-sign-return\')">' . esc_html__( '复制', 'woo-alipay' ) . '</button></li>';
+            echo '</ul>';
+        }
+        echo '</div>';
+
         echo '<table class="form-table woo-alipay-settings">';
-
         $this->generate_settings_html();
-
         echo '</table>';
+
+        // 简易复制函数
+        echo '<script type="text/javascript">function wooAlipayCopy(sel){try{var el=document.querySelector(sel);if(!el)return;var r=document.createRange();r.selectNode(el);var s=window.getSelection();s.removeAllRanges();s.addRange(r);document.execCommand("copy");s.removeAllRanges();}catch(e){console&&console.error(e);}}</script>';
+    }
+
+    // Provider state methods for WooCommerce Payments list badges
+    public function is_account_connected() {
+        return (bool) ( $this->get_option('appid') && $this->get_option('private_key') && $this->get_option('public_key') );
+    }
+
+    public function needs_setup() {
+        return ! $this->is_account_connected();
+    }
+
+    public function is_test_mode() {
+        return 'yes' === $this->get_option('sandbox');
     }
 
     public function check_alipay_response()
@@ -861,9 +1047,23 @@ class WC_Alipay extends WC_Payment_Gateway
         $fund_bill_list = isset($_POST['fund_bill_list']) ? stripslashes(sanitize_text_field($_POST['fund_bill_list'])) : '';
         $needs_reply = false;
         $error = false;
-        $out_trade_no_parts = explode('-', str_replace('WooA', '', $out_trade_no));
-        $order_id = absint(array_shift($out_trade_no_parts));
-        $order = wc_get_order($order_id);
+
+        // 先尝试通过既有规则（WooA前缀）解析订单ID
+        $order = null;
+        $order_id = 0;
+        if ( strpos( $out_trade_no, 'WooA' ) === 0 ) {
+            $out_trade_no_parts = explode('-', str_replace('WooA', '', $out_trade_no));
+            $order_id = absint(array_shift($out_trade_no_parts));
+            $order = wc_get_order($order_id);
+        }
+        // 若无法解析或未找到订单，改为通过订单元数据定位（适配自动续费 SubR*）
+        if ( ! $order ) {
+            $orders = wc_get_orders( array( 'meta_key' => '_alipay_out_trade_no', 'meta_value' => $out_trade_no, 'limit' => 1 ) );
+            if ( ! empty( $orders ) ) {
+                $order = $orders[0];
+                $order_id = $order->get_id();
+            }
+        }
         $order_check = ($order instanceof WC_Order);
         
         if (!$order_check) {

@@ -39,6 +39,15 @@ if ( file_exists( WOO_ALIPAY_PLUGIN_PATH . 'enable-gateways.php' ) ) {
 	require_once WOO_ALIPAY_PLUGIN_PATH . 'enable-gateways.php';
 }
 
+// Load agreement manager (subscriptions auto-renew support)
+if ( file_exists( WOO_ALIPAY_PLUGIN_PATH . 'inc/class-wc-alipay-agreement.php' ) ) {
+	require_once WOO_ALIPAY_PLUGIN_PATH . 'inc/class-wc-alipay-agreement.php';
+}
+// Load subscription UI helpers
+if ( file_exists( WOO_ALIPAY_PLUGIN_PATH . 'inc/class-wc-alipay-subscription-ui.php' ) ) {
+	require_once WOO_ALIPAY_PLUGIN_PATH . 'inc/class-wc-alipay-subscription-ui.php';
+}
+
 add_action( 'before_woocommerce_init', function() {
 	if ( class_exists( \Automattic\WooCommerce\Utilities\FeaturesUtil::class ) ) {
 		\Automattic\WooCommerce\Utilities\FeaturesUtil::declare_compatibility( 'custom_order_tables', __FILE__, true );
@@ -62,14 +71,8 @@ function woo_alipay_run() {
 		require_once WOO_ALIPAY_PLUGIN_PATH . 'inc/class-alipay-sdk-helper.php';
 	}
 	
-	// Load new payment gateways
-	if ( file_exists( WOO_ALIPAY_PLUGIN_PATH . 'inc/class-wc-alipay-installment.php' ) ) {
-		require_once WOO_ALIPAY_PLUGIN_PATH . 'inc/class-wc-alipay-installment.php';
-	}
-	
-	if ( file_exists( WOO_ALIPAY_PLUGIN_PATH . 'inc/class-wc-alipay-facetopay.php' ) ) {
-		require_once WOO_ALIPAY_PLUGIN_PATH . 'inc/class-wc-alipay-facetopay.php';
-	}
+	// Extension gateways are now fully owned and loaded by their respective extensions.
+	// The core plugin no longer requires Huabei or Face-to-Face classes here.
 	
 	// Load enhanced payment features
 	if ( file_exists( WOO_ALIPAY_PLUGIN_PATH . 'inc/class-wc-alipay-order-query.php' ) ) {

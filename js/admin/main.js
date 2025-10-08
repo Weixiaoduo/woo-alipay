@@ -1,6 +1,7 @@
 /* global WooAlipay */
 jQuery( document ).ready( function( $ ) {
 
+
 	$( '#woo-alipay-test-connection, #woo_alipay_test_connection' ).on( 'click', function( e ) {
 		e.preventDefault();
 
