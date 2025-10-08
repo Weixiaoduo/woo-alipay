@@ -1,7 +1,15 @@
-# WooCommerce 支付宝支付网关插件 - Woo Alipay
+# Woo Alipay - WooCommerce 支付宝支付网关插件
+
+[![WordPress 版本](https://img.shields.io/badge/WordPress-6.0%2B-blue.svg)](https://wordpress.org/)
+[![WooCommerce 版本](https://img.shields.io/badge/WooCommerce-10.2.2%2B-green.svg)](https://woocommerce.com/)
+[![许可证](https://img.shields.io/badge/License-GPL%20v2%2B-brightgreen.svg)](https://opensource.org/licenses/GPL-2.0+)
+
+为 WooCommerce 提供全面的支付宝支付网关集成，支持中国大陆支付方式，具备先进功能和现代 WooCommerce 兼容性。
 
 * [总体描述](#user-content-总体描述)
 	* [系统要求](#user-content-系统要求)
+	* [功能特性](#user-content-功能特性)
+	* [安装说明](#user-content-安装说明)
 	* [功能概述](#user-content-功能概述)
 	* [设置说明](#user-content-设置说明)
 	* [网关设置](#user-content-网关设置)
@@ -10,6 +18,8 @@
 	* [注册功能、网站URL和回调](#user-content-注册功能网站url和回调)
 	* [密钥管理](#user-content-密钥管理)
 * [模板文件](#user-content-模板文件)
+* [常见问题](#user-content-常见问题)
+* [技术支持](#user-content-技术支持)
 
 ## 总体描述
 
@@ -21,16 +31,47 @@ Woo Alipay 为 WooCommerce 驱动的网站添加了支付宝中国支付网关�
 * [中国大陆支付宝商户账户](https://b.alipay.com/)
 * 已启用支付产品"电脑网站支付"和"手机网站支付"
 
+### 功能特性
+
+此插件提供全面的支付宝支付集成，具备以下功能：
+
+#### 支付方式
+- **移动网页支付：** 通过支付宝移动应用提供无缝支付体验
+- **电脑网页支付：** 在台式机/笔记本电脑上通过凭据或二维码进行身份验证
+- **分期付款：** 支持支付宝花呗分期付款
+- **当面付：** 零售场景下的二维码扫描支付
+
+#### 高级功能
+- **WooCommerce 区块支持：** 完全兼容 WooCommerce 结账区块
+- **HPOS 兼容性：** 支持 WooCommerce 高性能订单存储
+- **订单管理：** 高级订单查询、超时处理和状态同步
+- **智能退款：** 手动和自动退款处理，支持失败交易恢复
+- **Webhook 可靠性：** 处理 webhook 失败的重试机制
+- **多货币支持：** 使用可配置汇率自动货币转换
+
+#### 集成与兼容性
+- **多语言就绪：** 兼容 WPML 和 WooCommerce 多语言
+- **插件兼容性：** 适用于 Ultimate Member 和 WooCommerce 兼容的缓存插件
+- **现代架构：** 基于支付宝 Easy SDK 构建，提供改进的性能和可靠性
+
+### 安装说明
+
+1. **下载插件**
+   从 [Wenpai.org](https://wenpai.org/plugins/woo-alipay) 或 GitHub 仓库下载插件 zip 文件。
+
+2. **通过 WordPress 管理后台安装**
+   - 导航到 **插件 → 安装插件 → 上传插件**
+   - 选择下载的 zip 文件并点击"立即安装"
+   - 安装后激活插件
+
+3. **配置支付宝设置**
+   - 前往 **WooCommerce → 设置 → 付款 → 支付宝**
+   - 启用支付网关并配置您的支付宝凭据
+   - 按照下面的配置指南设置您的支付宝账户
+
 ### 功能概述
 
-此插件为 WooCommerce 添加了以下主要功能：
-
-* **移动网页浏览器支付 WooCommerce 订单：** 调用支付宝移动应用，提供无缝体验。
-* **标准网页浏览器支付 WooCommerce 订单：** 在台式机/笔记本电脑上通过凭据或二维码进行身份验证。
-* **WooCommerce 订单退款：** 可以在几次点击中手动退款订单，并支持交易失败时的自动退款。
-* **多货币支持：** 使用设置中配置的相对于人民币的汇率。
-
-兼容 [WooCommerce Multilingual](https://wordpress.org/plugins/woocommerce-multilingual/)、[WPML](http://wpml.org/)、[Ultimate Member](https://wordpress.org/plugins/ultimate-member/) 和任何与 WooCommerce 兼容的缓存插件。
+Woo Alipay 与 WooCommerce 无缝集成，为中国客户提供强大的支付解决方案。插件处理从订单创建到付款确认和退款处理的完整支付生命周期，确保为商家和客户提供顺畅的体验。
 
 ## 设置说明
 
@@ -134,3 +175,44 @@ redirected-pay.php
 
 **关联的样式队列键：**
 `woo-alipay-main-style`
+
+## 常见问题
+
+### 问：此插件是否支持支付宝国际支付？
+答：不支持，此插件专为支付宝中国大陆支付设计。如需国际支付，您需要使用不同的支付宝解决方案。
+
+### 问：支持哪些 WooCommerce 版本？
+答：插件支持 WooCommerce 10.2.2 及更高版本，包括与 WooCommerce 区块和高性能订单存储（HPOS）的完全兼容性。
+
+### 问：我可以在国外使用此插件吗？
+答：插件适用于拥有中国大陆支付宝商户账户的商家。根据您的支付宝账户配置，可能会适用地域限制。
+
+### 问：如何处理支付失败或超时？
+答：插件包括自动订单超时处理和 webhook 重试机制。您可以在插件的管理面板中配置超时设置。
+
+### 问：是否支持多货币？
+答：是的，插件支持多货币付款，使用可配置汇率自动转换为人民币。
+
+### 问：可以自定义付款重定向页面吗？
+答：是的，插件提供模板覆盖。您可以按照模板文件部分的说明在主题中自定义 `redirected-pay.php` 模板。
+
+## 技术支持
+
+- **官方网站：** [WooCN.com](https://woocn.com/)
+- **插件页面：** [Wenpai.org](https://wenpai.org/plugins/woo-alipay)
+- **文档：** [插件文档](https://wenpai.org/plugins/woo-alipay)
+- **问题与支持：** 有关技术支持和错误报告，请通过官方网站或 GitHub 仓库联系。
+
+## 许可证
+
+此插件根据 GNU 通用公共许可证 v2.0 或更高版本发布。详情请参阅 [LICENSE](LICENSE) 文件。
+
+## 贡献
+
+欢迎贡献！请随时提交拉取请求或在 GitHub 仓库上报告问题。
+
+---
+
+**版本：** 3.2.0
+**最后更新：** 2025年
+**作者：** WooCN.com

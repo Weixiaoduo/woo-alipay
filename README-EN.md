@@ -1,7 +1,15 @@
-# Payment gateway for WooCommerce - Woo Alipay
+# Woo Alipay - Payment Gateway for WooCommerce
+
+[![WordPress Version](https://img.shields.io/badge/WordPress-6.0%2B-blue.svg)](https://wordpress.org/)
+[![WooCommerce Version](https://img.shields.io/badge/WooCommerce-10.2.2%2B-green.svg)](https://woocommerce.com/)
+[![License](https://img.shields.io/badge/License-GPL%20v2%2B-brightgreen.svg)](https://opensource.org/licenses/GPL-2.0+)
+
+A comprehensive Alipay payment gateway integration for WooCommerce, supporting Mainland China payment methods with advanced features and modern WooCommerce compatibility.
 
 * [General Description](#user-content-general-description)
 	* [Requirements](#user-content-requirements)
+	* [Features](#user-content-features)
+	* [Installation](#user-content-installation)
 	* [Overview](#user-content-overview)
 * [Settings](#user-content-settings)
 	* [Gateway settings](#user-content-gateway-settings)
@@ -22,16 +30,47 @@ This Mainland China gateway allows customers to pay both in mobile browsers or f
 * A [China Mainland Alipay merchant account](https://b.alipay.com/).
 * The Payment products "支付产品" Computer website payment "电脑网站支付" and Mobile website payment "手机网站支付" enabled.
 
+### Features
+
+This plugin provides comprehensive Alipay payment integration with the following features:
+
+#### Payment Methods
+- **Mobile Web Payment:** Seamless payment experience via Alipay mobile app
+- **Computer Web Payment:** Desktop/laptop payment through credentials or QR code authentication
+- **Installment Payment:** Support for Alipay Huabei installment payments
+- **Face-to-Face Payment:** QR code scanning payment for retail scenarios
+
+#### Advanced Features
+- **WooCommerce Blocks Support:** Full compatibility with WooCommerce Checkout Block
+- **HPOS Compatibility:** Support for WooCommerce High-Performance Order Storage
+- **Order Management:** Advanced order query, timeout handling, and status synchronization
+- **Smart Refunds:** Manual and automatic refund processing with failed transaction recovery
+- **Webhook Reliability:** Retry mechanism for handling webhook failures
+- **Multi-Currency Support:** Automatic currency conversion with configurable exchange rates
+
+#### Integration & Compatibility
+- **Multilingual Ready:** Compatible with WPML and WooCommerce Multilingual
+- **Plugin Compatibility:** Works with Ultimate Member and WooCommerce-compatible caching plugins
+- **Modern Architecture:** Built with Alipay Easy SDK for improved performance and reliability
+
+### Installation
+
+1. **Download the Plugin**
+   Download the plugin zip file from [Wenpai.org](https://wenpai.org/plugins/woo-alipay) or the GitHub repository.
+
+2. **Install via WordPress Admin**
+   - Navigate to **Plugins → Add New → Upload Plugin**
+   - Choose the downloaded zip file and click "Install Now"
+   - Activate the plugin after installation
+
+3. **Configure Alipay Settings**
+   - Go to **WooCommerce → Settings → Payments → Alipay**
+   - Enable the payment gateway and configure your Alipay credentials
+   - Follow the configuration guide below to set up your Alipay account
+
 ### Overview
 
-This plugin adds the following major features to WooCommerce:
-
-* **Payment of WooCommerce orders in mobile web browser app:** calls the Alipay mobile app for a seamless experience.
-* **Payment of WooCommerce orders standard in web browser:** authentication performed via credentials or QR code on desktop/laptop.
-* **Refund of WooCommerce orders:** possibility to refund orders manually in a few clicks, and support for automatic refund in case the transaction failed.
-* **Multi-currency support:** using an exchange rate against Chinese Yuan configured in the settings.
-
-Compatible with [WooCommerce Multilingual](https://wordpress.org/plugins/woocommerce-multilingual/), [WPML](http://wpml.org/), [Ultimate Member](https://wordpress.org/plugins/ultimate-member/), and any caching plugin compatible with WooCommerce.
+Woo Alipay seamlessly integrates with WooCommerce to provide a robust payment solution for Chinese customers. The plugin handles the complete payment lifecycle from order creation to payment confirmation and refund processing, ensuring a smooth experience for both merchants and customers.
 
 ## Settings
 
@@ -143,5 +182,46 @@ redirected-pay.php
 **Description**  
 The template of the page displayed when users are redirected before payment. The template acts as a placeholder before showing the Alipay payment UI.  
 
-**Associated style enqueued with key:**  
-`woo-alipay-main-style`  
+**Associated style enqueued with key:**
+`woo-alipay-main-style`
+
+## FAQ
+
+### Q: Does this plugin support Alipay International payments?
+A: No, this plugin is specifically designed for Alipay Mainland China payments. For international payments, you would need a different Alipay solution.
+
+### Q: What WooCommerce versions are supported?
+A: The plugin supports WooCommerce 10.2.2 and later, including full compatibility with WooCommerce Blocks and High-Performance Order Storage (HPOS).
+
+### Q: Can I use this plugin outside of China?
+A: The plugin is designed for merchants who have a China Mainland Alipay merchant account. Geographic restrictions may apply based on your Alipay account configuration.
+
+### Q: How do I handle payment failures or timeouts?
+A: The plugin includes automatic order timeout handling and webhook retry mechanisms. You can configure timeout settings in the plugin's admin panel.
+
+### Q: Is multi-currency support available?
+A: Yes, the plugin supports multi-currency payments with automatic conversion to Chinese Yuan using configurable exchange rates.
+
+### Q: Can I customize the payment redirect page?
+A: Yes, the plugin provides template overrides. You can customize the `redirected-pay.php` template in your theme as described in the Templates section.
+
+## Support
+
+- **Official Website:** [WooCN.com](https://woocn.com/)
+- **Plugin Page:** [Wenpai.org](https://wenpai.org/plugins/woo-alipay)
+- **Documentation:** [Plugin Documentation](https://wenpai.org/plugins/woo-alipay)
+- **Issues & Support:** For technical support and bug reports, please contact through the official website or GitHub repository.
+
+## License
+
+This plugin is released under the GNU General Public License v2.0 or later. See [LICENSE](LICENSE) file for details.
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit pull requests or report issues on the GitHub repository.
+
+---
+
+**Version:** 3.2.0
+**Last Updated:** 2025
+**Author:** WooCN.com  
